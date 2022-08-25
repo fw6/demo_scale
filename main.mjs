@@ -1,100 +1,72 @@
 import VConsole from 'vconsole';
 import AlloyFinger from 'alloyfinger';
-// import { } from 'lodash';
 
 import { Transform } from './transfom.mjs';
 
 new VConsole();
 
-const contentEle = document.querySelector('.content')
+// 滚动容器元素
+const contentEle = document.querySelector('.content');
 
+Transform(contentEle);
+
+// 初始缩放比例
 let initScale = 1;
-const maxScale = 1.5;
-const minScale = 1;
-
-let scale = 1;
-
-Transform(contentEle)
 
 new AlloyFinger(contentEle, {
-    doubleTap: function (evt) {
-        // let nextScale = initScale;
-
-        // if (scale === initScale) nextScale = maxScale
-        // else if (scale > initScale && scale < maxScale) nextScale = maxScale;
-        // else nextScale = initScale;
-
-        // scale = contentEle.originX = contentEle.originX = nextScale;
-
-        console.log(evt.targetTouches);
-
-        // var centerX = (evt.touches[0].pageX + evt.touches[1].pageX) / 2;
-        // var centerY = (evt.touches[0].pageY + evt.touches[1].pageY) / 2;
-
-        // var cr = contentEle.getBoundingClientRect();
-        // var ele_centerX = cr.left + cr.width / 2;
-        // var ele_centerY = cr.top + cr.height / 2;
-
-        // var offX = centerX - ele_centerX;
-        // var offY = centerY - ele_centerY;
-
-        // contentEle.originX = offX / contentEle.scaleX;
-        // contentEle.originY = offY / contentEle.scaleY;
-        contentEle.originX = contentEle.originY = 0
+    doubleTap: (evt) => {
+        // 还原变形原点
+        contentEle.originX = contentEle.originY = 0;
+        // 还原水平垂直方向平移距离
         contentEle.translateX = contentEle.translateY = 0;
-        contentEle.scaleX = contentEle.scaleY = 1;
 
-        console.log('doubleTap');
+        // 还原缩放比例
+        initScale = contentEle.scaleX = contentEle.scaleY = 1;
     },
-    pinch: function (evt) {
-        // scale = contentEle.originX = contentEle.originX = Math.max(initScale, Math.min(initScale * evt.zoom, maxScale));
-
-        contentEle.scaleX = contentEle.scaleY = Math.max(initScale, Math.min(initScale * evt.zoom, maxScale));
-
-        console.log('scalex: %s, initScale: %s', contentEle.scaleX, initScale);
+    pinch: (evt) => {
+        // 更新缩放比例
+        contentEle.scaleX = contentEle.scaleY = Math.max(Math.min(initScale * evt.zoom, 1.8), 1);
     },
 
-    multipointStart: function (evt) {
-        //reset origin x and y
-        var centerX = (evt.touches[0].pageX + evt.touches[1].pageX) / 2;
-        var centerY = (evt.touches[0].pageY + evt.touches[1].pageY) / 2;
-        console.log('centerX: %s, centerY: %s', centerX, centerY);
-        var cr = contentEle.getBoundingClientRect();
-        var img_centerX = cr.left + cr.width / 2;
-        var img_centerY = cr.top + cr.height / 2;
-        var offX = centerX - img_centerX;
-        var offY = centerY - img_centerY;
-        var preOriginX = contentEle.originX
-        var preOriginY = contentEle.originY
+    multipointStart: (evt) => {
+        // 1. 计算缩放中心点
+        const scale_center_x = (evt.touches[0].pageX + evt.touches[1].pageX) / 2;
+        const scale_center_y = (evt.touches[0].pageY + evt.touches[1].pageY) / 2;
+        console.log('缩放中心点： %s %s', scale_center_x, scale_center_y);
 
-        contentEle.originX = offX / contentEle.scaleX;
-        contentEle.originY = offY / contentEle.scaleY;
+        // 2. 计算滚动容器中心点
+        const client_rect = contentEle.getBoundingClientRect();
+        const center_x = client_rect.left + client_rect.width / 2;
+        const center_y = client_rect.top + client_rect.height / 2;
 
-        //reset translateX and translateY
-        contentEle.translateX = Math.max(Math.min(offX - preOriginX * contentEle.scaleX + contentEle.translateY, 0), -cr.width * contentEle.scaleX - contentEle.originX * contentEle.scaleX);
-        contentEle.translateY = Math.max(Math.min(offY - preOriginY * contentEle.scaleY + contentEle.translateY, 0), -cr.height * contentEle.scaleY - contentEle.originY * contentEle.scaleY);
+        // 3. 计算缩放中心点距离滚动容器中心点的偏移量
+        const offset_x = scale_center_x - center_x;
+        const offset_y = scale_center_y - center_y;
 
-        // initScale = contentEle.scaleX;
+        // 4. 获取上一次的偏移量
+        const pre_offset_x = contentEle.originX * contentEle.scaleX;
+        const pre_offset_y = contentEle.originY * contentEle.scaleY;
 
-        // console.log('multipointStart::: initScale: %s', initScale);
+        // 5. 设置当前变形原点
+        contentEle.originX = offset_x / contentEle.scaleX;
+        contentEle.originY = offset_y / contentEle.scaleY;
 
-        console.log('originX: %s, originY: %s', contentEle.originX, contentEle.originY);
+        // 6. 重置滚动容器的水平垂直方向平移距离
+        contentEle.translateX = offset_x - pre_offset_x + contentEle.translateX;
+        contentEle.translateY = offset_y - pre_offset_y + contentEle.translateY;
+
+        initScale = contentEle.scaleX;
     },
 
     pressMove: function (evt) {
-        var cr = contentEle.getBoundingClientRect();
-        console.log('originX: %s, width: %s', contentEle.originX, cr.width);
+        // 上下左右滑动，如果未缩放，则使用默认滚动行为
+        if (initScale === 1) return;
 
-        if (contentEle.scaleX !== 1) {
-            contentEle.translateX = Math.max(Math.min(evt.deltaX + contentEle.translateX, 0), -cr.width * contentEle.scaleX - contentEle.originX * contentEle.scaleX);
-            contentEle.translateY = Math.max(Math.min(evt.deltaY + contentEle.translateY, 0), -cr.height * contentEle.scaleY - contentEle.originY * contentEle.scaleY);
+        // 根据滚动量计算最新平移量
+        contentEle.translateX += evt.deltaX;
+        contentEle.translateY += evt.deltaY;
 
-            console.log('translateX: %s, translateY: %s', contentEle.translateX, contentEle.translateY);
-            evt.preventDefault();
-        } else {
-            contentEle.originX = contentEle.originY = 0;
-            contentEle.translateX = contentEle.translateY = 0;
-            //     console.log('pressMove');
-        }
+        // 阻止默认滚动行为
+        evt.preventDefault();
     }
 })
